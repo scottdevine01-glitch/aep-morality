@@ -107,12 +107,12 @@ class ExperimentalProtocols:
         print(f"Odds ratio: {np.mean(courageous_prob)/np.mean(fearful_prob):.2f}")
         
         # Test H3: Courage increases alignment confidence
-        xi_correlation = self.pearson_correlation(
+        xi_correlation, xi_p_value = self.pearson_correlation(
             courageous_trials['alignment_confidence'],
             courageous_trials['synchrony']
         )
         
-        print(f"\nH3 Validation: ξ ~ Synchrony correlation: r = {xi_correlation:.3f}")
+        print(f"\nH3 Validation: ξ ~ Synchrony correlation: r = {xi_correlation:.3f}, p = {xi_p_value:.4f}")
         if xi_correlation > 0.3:
             print("✓ Alignment-Dynamics Hypothesis SUPPORTED")
         else:
@@ -121,7 +121,8 @@ class ExperimentalProtocols:
         results = {
             'courageous_prob': np.mean(courageous_prob),
             'fearful_prob': np.mean(fearful_prob),
-            'xi_synchrony_correlation': xi_correlation
+            'xi_synchrony_correlation': xi_correlation,
+            'xi_synchrony_p_value': xi_p_value
         }
         
         self.protocol_results['eeg_courage'] = results
@@ -283,7 +284,7 @@ class ExperimentalProtocols:
         var_y = np.sum((y - mean_y)**2)
         
         if var_x == 0 or var_y == 0:
-            return 0, 1.0
+            return 0.0, 1.0
             
         r = cov / np.sqrt(var_x * var_y)
         
