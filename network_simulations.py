@@ -1,17 +1,17 @@
 """
 AEP MORALITY - NETWORK SIMULATIONS
 Simulating moral potential dynamics in conscious networks
+NUMPY-ONLY VERSION - No scipy or networkx dependencies
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-import networkx as nx
-from scipy import stats
+import math
 
 class MoralNetworkSimulator:
     """
     Simulates networks of conscious agents and their moral potential dynamics
     Based on Equations 8-11 from the paper
+    NUMPY-ONLY IMPLEMENTATION
     """
     
     def __init__(self, n_agents=10, initial_trust=0.7):
@@ -28,13 +28,17 @@ class MoralNetworkSimulator:
         
         self.moral_potential_history = []
         
+    def safe_log(self, x):
+        """Safe logarithm that handles zeros"""
+        return np.log(x + 1e-10)
+    
     def calculate_network_complexity(self):
         """
         Calculate total descriptive complexity of the network
         Combines relational complexity and agent state complexities
         """
         # Relational complexity (trust matrix compressibility)
-        trust_entropy = -np.sum(self.trust_network * np.log(self.trust_network + 1e-10))
+        trust_entropy = -np.sum(self.trust_network * self.safe_log(self.trust_network))
         
         # Agent state complexities
         id_complexity = np.mean(self.agent_states['intrinsic_dimensionality'])
@@ -82,12 +86,18 @@ class MoralNetworkSimulator:
         self.trust_network[agent_j, agent_i] = min(1.0, old_trust + trust_increase)
         
         # Improve agent compression metrics
-        self.agent_states['intrinsic_dimensionality'][agent_i] += complexity_reduction * 0.5
-        self.agent_states['intrinsic_dimensionality'][agent_j] += complexity_reduction * 0.5
-        self.agent_states['predictive_complexity'][agent_i] -= 0.01
-        self.agent_states['predictive_complexity'][agent_j] -= 0.01
-        self.agent_states['information_integration'][agent_i] += 0.05
-        self.agent_states['information_integration'][agent_j] += 0.05
+        self.agent_states['intrinsic_dimensionality'][agent_i] = max(5, 
+            self.agent_states['intrinsic_dimensionality'][agent_i] + complexity_reduction * 0.5)
+        self.agent_states['intrinsic_dimensionality'][agent_j] = max(5,
+            self.agent_states['intrinsic_dimensionality'][agent_j] + complexity_reduction * 0.5)
+        self.agent_states['predictive_complexity'][agent_i] = max(0.01,
+            self.agent_states['predictive_complexity'][agent_i] - 0.01)
+        self.agent_states['predictive_complexity'][agent_j] = max(0.01,
+            self.agent_states['predictive_complexity'][agent_j] - 0.01)
+        self.agent_states['information_integration'][agent_i] = min(1.0,
+            self.agent_states['information_integration'][agent_i] + 0.05)
+        self.agent_states['information_integration'][agent_j] = min(1.0,
+            self.agent_states['information_integration'][agent_j] + 0.05)
         
         return trust_increase, complexity_reduction
     
@@ -120,8 +130,10 @@ class MoralNetworkSimulator:
         self.agent_states['intrinsic_dimensionality'][agent_j] += complexity_increase * 0.5
         self.agent_states['predictive_complexity'][agent_i] += 0.02
         self.agent_states['predictive_complexity'][agent_j] += 0.02
-        self.agent_states['information_integration'][agent_i] -= 0.08
-        self.agent_states['information_integration'][agent_j] -= 0.08
+        self.agent_states['information_integration'][agent_i] = max(0.1,
+            self.agent_states['information_integration'][agent_i] - 0.08)
+        self.agent_states['information_integration'][agent_j] = max(0.1,
+            self.agent_states['information_integration'][agent_j] - 0.08)
         
         return trust_decrease, complexity_increase
     
@@ -147,12 +159,10 @@ class MoralNetworkSimulator:
                 # Virtuous interaction
                 virtue_type = np.random.choice(virtues)
                 trust_inc, comp_red = self.virtue_operator(agent_i, agent_j, virtue_type)
-                # print(f"Step {step:3d}: {virtue_type:12} between {agent_i} & {agent_j} | Ψ = {current_potential:7.2f}")
             else:
                 # Sinful interaction  
                 sin_type = np.random.choice(sins)
                 trust_dec, comp_inc = self.sin_operator(agent_i, agent_j, sin_type)
-                # print(f"Step {step:3d}: {sin_type:12} between {agent_i} & {agent_j} | Ψ = {current_potential:7.2f}")
             
             # Every 20 steps, print progress
             if step % 20 == 0:
@@ -160,6 +170,30 @@ class MoralNetworkSimulator:
                 print(f"Step {step:3d}: Ψ = {current_potential:7.2f}, Avg Trust = {avg_trust:.3f}")
         
         return self.moral_potential_history
+    
+    def calculate_pearson_correlation(self, x, y):
+        """
+        Pearson correlation using only numpy
+        """
+        n = len(x)
+        mean_x, mean_y = np.mean(x), np.mean(y)
+        
+        # Covariance and variances
+        cov = np.sum((x - mean_x) * (y - mean_y))
+        var_x = np.sum((x - mean_x)**2)
+        var_y = np.sum((y - mean_y)**2)
+        
+        # Correlation coefficient
+        if var_x == 0 or var_y == 0:
+            return 0, 1.0
+            
+        r = cov / np.sqrt(var_x * var_y)
+        
+        # Simplified p-value approximation
+        t_stat = r * math.sqrt((n-2) / (1 - r**2)) if abs(r) < 1 else float('inf')
+        p_value = 2 * (1 - 0.5 * (1 + math.erf(abs(t_stat) / math.sqrt(2)))) if np.isfinite(t_stat) else 0
+        
+        return r, p_value
 
 def demonstrate_virtue_vs_sin_networks():
     """
@@ -205,7 +239,7 @@ def demonstrate_virtue_vs_sin_networks():
         print(f"{network_type:>10} Network:")
         print(f"  Final Moral Potential: {final_potentials[network_type]:.2f}")
         print(f"  Average Trust: {final_trusts[network_type]:.3f}")
-        print(f"  Network Stability: {final_potentials[network_type] / 100:.3f}")
+        print(f"  Network Stability: {abs(final_potentials[network_type]) / 100:.3f}")
     
     return virtuous_net, sinful_net, balanced_net
 
@@ -252,7 +286,7 @@ def demonstrate_alignment_dynamics():
     
     print(f"\nCourageous Action Rate: {courageous_actions/total_interactions:.1%}")
     print(f"Final Moral Potential: {network.moral_potential():.2f}")
-    print(f"Alignment Confidence Growth: +{np.mean(alignment_confidences - 0.6):.3f}")
+    print(f"Alignment Confidence Growth: +{np.mean(alignment_confidences) - 0.6:.3f}")
 
 def analyze_network_resilience():
     """
@@ -300,22 +334,81 @@ def analyze_network_resilience():
         print(f"Network {i+1}: Initial Ψ = {initial_potential:7.2f}, "
               f"Final Ψ = {final_potential:7.2f}, Recovery = {recovery_ratio:.3f}")
     
-    # Correlation analysis
-    r_value, p_value = stats.pearsonr(initial_potentials, resilience_metrics)
+    # Correlation analysis using numpy-only function
+    r_value, p_value = networks[0].calculate_pearson_correlation(initial_potentials, resilience_metrics)
     print(f"\nResilience Correlation: r = {r_value:.3f}, p = {p_value:.4f}")
-    print("Higher initial moral potential predicts better crisis recovery!")
+    if r_value > 0:
+        print("✓ Higher initial moral potential predicts better crisis recovery!")
+    else:
+        print("✗ Unexpected correlation pattern")
+
+def demonstrate_moral_impact_calculation():
+    """
+    Demonstrate moral impact equation: 𝒮(M) = κ(ΔΨ/Ψ₀)A(M)R(M)
+    """
+    print("\n" + "=" * 60)
+    print("MORAL IMPACT CALCULATION DEMONSTRATION")
+    print("=" * 60)
+    
+    network = MoralNetworkSimulator(n_agents=5)
+    initial_potential = network.moral_potential()
+    
+    # Test different actions
+    actions = [
+        ("Major honesty", "honesty", 0.9, 0.8),
+        ("Minor cooperation", "cooperation", 0.7, 0.6),
+        ("Forgiveness", "forgiveness", 0.8, 0.9),
+        ("Deception", "deception", 0.3, 0.4),
+    ]
+    
+    print("Moral Impact of Different Actions:")
+    print(f"{'Action':<20} {'ΔΨ':<8} {'A(M)':<6} {'R(M)':<6} {'𝒮(M)':<8}")
+    print("-" * 50)
+    
+    for action_name, action_type, alignment, robustness in actions:
+        # Store initial state
+        initial_trust = network.trust_network.copy()
+        initial_states = {k: v.copy() for k, v in network.agent_states.items()}
+        
+        # Apply action
+        if action_type in ["honesty", "cooperation", "forgiveness"]:
+            network.virtue_operator(0, 1, action_type)
+        else:
+            network.sin_operator(0, 1, action_type)
+        
+        # Calculate moral impact
+        final_potential = network.moral_potential()
+        delta_psi = final_potential - initial_potential
+        delta_psi_ratio = delta_psi / abs(initial_potential)
+        
+        # Moral impact equation
+        kappa = 100  # Scaling constant
+        moral_impact = kappa * delta_psi_ratio * alignment * robustness
+        
+        print(f"{action_name:<20} {delta_psi:>7.2f} {alignment:>5.2f} {robustness:>5.2f} {moral_impact:>7.2f}")
+        
+        # Restore initial state for next test
+        network.trust_network = initial_trust
+        network.agent_states = initial_states
 
 if __name__ == "__main__":
     # Run all demonstrations
+    print("AEP MORAL NETWORK SIMULATIONS")
+    print("=" * 60)
+    print("NUMPY-ONLY IMPLEMENTATION")
+    print("=" * 60)
+    
     virtuous_net, sinful_net, balanced_net = demonstrate_virtue_vs_sin_networks()
     demonstrate_alignment_dynamics()
     analyze_network_resilience()
+    demonstrate_moral_impact_calculation()
     
     print("\n" + "=" * 60)
     print("NETWORK SIMULATIONS COMPLETE")
     print("=" * 60)
     print("✓ Virtue/sin operators quantitatively demonstrated")
-    print("✓ Moral potential dynamics simulated")
+    print("✓ Moral potential dynamics simulated") 
     print("✓ Alignment dynamics (fear/courage) modeled")
     print("✓ Network resilience empirically validated")
+    print("✓ Moral impact equation implemented")
     print("✓ All network effects follow AEP predictions")
